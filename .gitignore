@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+
+# Тесты и кэш
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Сборка документов и временные артефакты
+# Шаблоны в assets/templates/*.dotx — часть проекта, поэтому .dotx не игнорируем
+*.docx
+!tests/fixtures/*.docx
+output/
+tmp/
+*.log
+
+# Конфигурация с секретами
+.env
+.env.*
+config/local.yaml
+settings.local.yaml
+
+# IDE и ОС
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
