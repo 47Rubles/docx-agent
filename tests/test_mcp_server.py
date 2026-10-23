@@ -1,5 +1,7 @@
 """Offline MCP tool tests: validation, compilation, interview, path safety."""
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -51,10 +53,20 @@ def test_output_path_restricted(bad):
         _safe_output(bad)
 
 
+def test_windows_absolute_path_rejected_on_posix(monkeypatch):
+    """Путь Windows не должен проходить как относительный на POSIX."""
+    import src.interfaces.mcp_server as mcp_server
+    monkeypatch.setattr(mcp_server, '_IS_POSIX', True)
+    inside = str(Path.cwd() / 'report.docx')  # абсолютный путь внутри рабочей директории
+    with pytest.raises(ValueError):
+        _safe_output(inside)
+
+
 def test_generate_without_key_returns_error(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv('GROQ_API_KEY', raising=False)
     monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+    monkeypatch.delenv('LLM_API_KEY', raising=False)
     from src.interfaces.mcp_server import docx_generate
     report = json.loads(docx_generate('Отчёт', '_x.docx', provider='groq'))
     assert 'GROQ_API_KEY' in report['error']

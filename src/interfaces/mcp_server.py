@@ -11,6 +11,8 @@ Run: python -m src.interfaces.mcp_server
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
@@ -19,6 +21,15 @@ from src.agents.interviewer import analyze_requirements
 from src.agents.planner import plan_document
 from src.core.docx_compiler import compile_document
 from src.models.ast_schema import DocumentAST
+
+#: Абсолютный путь в соглашении Windows: диск («C:\…») или UNC («\\server\share»).
+#: На POSIX такой путь считается относительным, поэтому его нужно проверять явно.
+_WINDOWS_ABSOLUTE = re.compile(r'^(?:[A-Za-z]:[\\/]|\\\\)')
+
+#: Хост — POSIX? Вынесено в константу, чтобы поведение можно было проверить
+#: тестом на любой платформе (подменять os.name нельзя: pathlib выбирает
+#: реализацию путей при импорте и после подмены ломается).
+_IS_POSIX = os.name != 'nt'
 
 server = MCPServer(
     name='docx-agent',
@@ -34,7 +45,18 @@ server = MCPServer(
 def _safe_output(output_path: str) -> Path:
     """Resolve an output path and confine writes to the working directory."""
     root = Path.cwd().resolve()
-    path = Path(output_path)
+    raw = output_path.strip()
+    if not raw:
+        raise ValueError('Output path must not be empty')
+
+    if _IS_POSIX and _WINDOWS_ABSOLUTE.match(raw):
+        # На POSIX путь вида C:\Windows\evil.docx считается относительным и
+        # прошёл бы проверку вхождения в рабочую директорию, хотя запрошен
+        # абсолютный путь Windows. Отвергаем такой путь явно.
+        raise ValueError(
+            f'Output path must stay inside the working directory {root}: {output_path}')
+
+    path = Path(raw)
     if not path.is_absolute():
         path = root / path
     resolved = path.resolve()
