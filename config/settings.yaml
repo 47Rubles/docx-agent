@@ -2,37 +2,41 @@
 #
 # ВАЖНО: в этом файле нет и не должно быть ключей. Секреты подставляются
 # из переменной окружения в момент загрузки конфигурации — плейсхолдер
-# ${LLM_API_KEY} превращается в значение из окружения только в памяти.
+# ${LLM_API_KEY} превращается в значение только в памяти.
 #
-# Локально:   scripts/set-api-key.ps1  (кладёт ключ в переменную уровня User)
+# Локально:   scripts\set-api-key.ps1  (кладёт ключ в переменную уровня User)
 # В CI:       GitHub Actions Secret с именем LLM_API_KEY
-# Подробности: docs/SECRETS.md
+# Подробности: docs\SECRETS.md
 
 llm:
-  provider: gemini
-  base_url: https://generativelanguage.googleapis.com/v1beta
+  provider: groq
+  base_url: https://api.groq.com/openai/v1
 
-  # Плейсхолдер. Значение приходит из переменной окружения LLM_API_KEY.
+  # Плейсхолдер. Значение приходит из переменной окружения.
   api_key: "${LLM_API_KEY}"
 
   # Резервные источники ключа, если LLM_API_KEY не задана.
-  # Список живёт внутри профиля провайдера, поэтому при переключении на Groq
-  # он меняется вместе с профилем и старый ключ не подставится случайно.
+  # Список живёт внутри профиля провайдера, поэтому при переключении
+  # меняется вместе с ним и старый ключ не подставится случайно.
   api_key_fallbacks:
-    - GEMINI_API_KEY
+    - GROQ_API_KEY
 
-  # Google требует передавать ключ заголовком x-goog-api-key.
-  # Передача в Authorization: Bearer с ключами формата AQ.* даёт 401.
-  auth_style: header
-  auth_header: x-goog-api-key
+  # Groq принимает ключ как Authorization: Bearer. У Google наоборот:
+  # ключ формата AQ.* принимается только заголовком x-goog-api-key,
+  # а Authorization: Bearer с ним даёт 401.
+  auth_style: bearer
 
-  model: gemini-3.8-flash
+  model: openai/gpt-oss-120b
   timeout_seconds: 120
   max_retries: 3
-
-  # Параметры генерации
   temperature: 0.2
   max_output_tokens: 8192
+
+generation:
+  # Лимит токенов ответа для провайдеров с параметром max_tokens.
+  max_tokens: 6000
+  # Сколько раз агент пытается починить невалидный JSON от модели.
+  max_ast_repair_attempts: 2
 
 paths:
   templates_dir: assets/templates
@@ -40,32 +44,23 @@ paths:
   output_dir: output
 
 document:
-  template: assets/templates/minimalist.dotx
+  template: assets/templates/default.docx
   enable_toc: true
   enable_track_changes: false
   max_heading_depth: 3
 
 # ---------------------------------------------------------------------------
-# Переключение на Groq (OpenAI-совместимый API)
+# Профиль Google Gemini (раскомментируй и закомментируй секцию llm выше)
 # ---------------------------------------------------------------------------
-# Раскомментируй блок ниже и закомментируй секцию llm выше. Больше ничего
-# менять не нужно: ключ лежит в той же переменной LLM_API_KEY, а скрипт
-# scripts\set-api-key.ps1 сам подстроит заголовок под провайдера.
-#
-# Отличия Groq от Google:
-#   * ключ передаётся как Authorization: Bearer, а не заголовком x-goog-api-key;
-#   * ключ Groq имеет префикс gsk_;
-#   * с этой машины Groq доступен только через прокси 127.0.0.1:7890 —
-#     прямое соединение отдаёт 403 (гео-блок).
-#
 # llm:
-#   provider: groq
-#   base_url: https://api.groq.com/openai/v1
+#   provider: gemini
+#   base_url: https://generativelanguage.googleapis.com/v1beta
 #   api_key: "${LLM_API_KEY}"
 #   api_key_fallbacks:
-#     - GROQ_API_KEY
-#   auth_style: bearer
-#   model: llama-3.3-70b-versatile
+#     - GEMINI_API_KEY
+#   auth_style: header
+#   auth_header: x-goog-api-key
+#   model: gemini-3.8-flash
 #   timeout_seconds: 120
 #   max_retries: 3
 #   temperature: 0.2

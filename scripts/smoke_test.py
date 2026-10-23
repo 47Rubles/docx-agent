@@ -53,7 +53,9 @@ def build_request(llm: dict) -> tuple[str, dict[str, str], dict]:
         body = {
             "model": model,
             "messages": [{"role": "user", "content": PROMPT}],
-            "max_tokens": 16,
+            # У reasoning-моделей (gpt-oss) токены ответа включают размышления,
+            # поэтому лимит берём с запасом.
+            "max_completion_tokens": 256,
         }
 
     headers["Content-Type"] = "application/json"

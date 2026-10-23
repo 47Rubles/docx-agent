@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "title": "Пример новой схемы",
+    "author": "DocxGen Agent",
+    "enable_toc": true
+  },
+  "sections": [
+    {
+      "id": "1",
+      "title": "1. Обзор",
+      "level": 1,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Тестовый документ с таблицей и врезкой."
+        },
+        {
+          "type": "table",
+          "headers": [
+            "Показатель",
+            "Значение"
+          ],
+          "rows": [
+            [
+              {
+                "text": "Период"
+              },
+              {
+                "text": "2026"
+              }
+            ]
+          ],
+          "col_widths": [
+            60,
+            40
+          ]
+        },
+        {
+          "type": "callout",
+          "callout_type": "info",
+          "title": "Примечание",
+          "text": "Демонстрационные данные."
+        }
+      ]
+    }
+  ]
+}

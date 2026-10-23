@@ -74,6 +74,14 @@ if (-not $BaseUrl) {
     exit 1
 }
 
+# Имя переменной, которую читает именно этот провайдер.
+switch ($Provider) {
+    'groq'    { $ProviderVar = 'GROQ_API_KEY' }
+    'gemini'  { $ProviderVar = 'GEMINI_API_KEY' }
+    'anthropic' { $ProviderVar = 'ANTHROPIC_API_KEY' }
+    default   { $ProviderVar = $EnvName }
+}
+
 Write-Host ''
 Write-Host '  DocxGen Agent — настройка ключа API' -ForegroundColor Cyan
 Write-Host '  ------------------------------------' -ForegroundColor Cyan
@@ -88,14 +96,18 @@ if ($AuthStyle -eq 'header') {
 # --- получение ключа ----------------------------------------------------------
 $key = $null
 if ($UseExistingKey) {
-    $key = [Environment]::GetEnvironmentVariable($EnvName, 'User')
-    if ([string]::IsNullOrWhiteSpace($key)) { $key = $env:LLM_API_KEY }
+    # Сначала переменная провайдера, затем общая LLM_API_KEY, затем окружение процесса.
+    foreach ($candidate in @($ProviderVar, $EnvName)) {
+        $key = [Environment]::GetEnvironmentVariable($candidate, 'User')
+        if ([string]::IsNullOrWhiteSpace($key)) { $key = [Environment]::GetEnvironmentVariable($candidate, 'Process') }
+        if (-not [string]::IsNullOrWhiteSpace($key)) { break }
+    }
     if ([string]::IsNullOrWhiteSpace($key)) {
-        Write-Host ('Переменная ' + $EnvName + ' пуста.') -ForegroundColor Red
+        Write-Host ('Переменные ' + $ProviderVar + ' и ' + $EnvName + ' пусты.') -ForegroundColor Red
         Write-Host 'Запусти скрипт без -UseExistingKey и вставь ключ.' -ForegroundColor Yellow
         exit 1
     }
-    Write-Host ('Ключ взят из переменной окружения ' + $EnvName + '.') -ForegroundColor DarkGray
+    Write-Host ('Ключ взят из переменной окружения ' + $ProviderVar + '.') -ForegroundColor DarkGray
 } else {
     Write-Host ('Ключ сохранится в пользовательской переменной окружения ' + $EnvName + '.')
     Write-Host 'В файлы, в репозиторий и в чат он не попадёт.'
@@ -147,9 +159,18 @@ try {
 
 # --- сохранение ключа ---------------------------------------------------------
 if (-not $UseExistingKey) {
-    [Environment]::SetEnvironmentVariable($EnvName, $key, 'User')
-    Set-Item -Path ('Env:' + $EnvName) -Value $key
-    Write-Host ('  Ключ сохранён в пользовательскую переменную ' + $EnvName + '.') -ForegroundColor Green
+    # Ключ сохраняется дважды: под имя провайдера (её читает opencode.json
+    # в блоке provider) и под общее имя LLM_API_KEY (её читает MCP-сервер,
+    # CI-секрет и все остальные потребители). Это один и тот же секрет.
+    [Environment]::SetEnvironmentVariable($ProviderVar, $key, 'User')
+    Set-Item -Path ('Env:' + $ProviderVar) -Value $key
+    Write-Host ('  Ключ сохранён в ' + $ProviderVar + ' (пользовательская переменная).') -ForegroundColor Green
+
+    if ($ProviderVar -ne $EnvName) {
+        [Environment]::SetEnvironmentVariable($EnvName, $key, 'User')
+        Set-Item -Path ('Env:' + $EnvName) -Value $key
+        Write-Host ('  Ключ сохранён в ' + $EnvName + ' (пользовательская переменная).') -ForegroundColor Green
+    }
 }
 
 Write-Host ''

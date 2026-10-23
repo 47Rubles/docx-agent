@@ -1,0 +1,39 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "groq/llama-3.3-70b-versatile",
+  "provider": {
+    "groq": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Groq",
+      "options": {
+        "baseURL": "https://api.groq.com/openai/v1",
+        "apiKey": "{env:GROQ_API_KEY}"
+      },
+      "models": {
+        "llama-3.3-70b-versatile": {
+          "name": "Llama 3.3 70B Versatile"
+        },
+        "openai/gpt-oss-120b": {
+          "name": "GPT OSS 120B"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "servers": {
+      "docx-agent": {
+        "type": "local",
+        "command": ["python", "-m", "src.interfaces.mcp_server"],
+        "cwd": ".",
+        "environment": {
+          "GROQ_API_KEY": "{env:GROQ_API_KEY}",
+          "LLM_API_KEY": "{env:LLM_API_KEY}",
+          "ANTHROPIC_API_KEY": "{env:ANTHROPIC_API_KEY}",
+          "DOCX_LLM_PROVIDER": "{env:DOCX_LLM_PROVIDER}",
+          "DOCX_LLM_MODEL": "{env:DOCX_LLM_MODEL}",
+          "GROQ_BASE_URL": "{env:GROQ_BASE_URL}"
+        }
+      }
+    }
+  }
+}

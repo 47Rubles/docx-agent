@@ -19,9 +19,13 @@ env/
 htmlcov/
 
 # Сборка документов и временные артефакты
-# Шаблоны в assets/templates/*.dotx — часть проекта, поэтому .dotx не игнорируем
+# Корпоративный шаблон и демонстрационные сборки — часть проекта,
+# поэтому .docx игнорируем не весь, а только рабочие выгрузки.
 *.docx
+!assets/templates/*.docx
 !tests/fixtures/*.docx
+!report.docx
+!output_sample.docx
 output/
 tmp/
 *.log

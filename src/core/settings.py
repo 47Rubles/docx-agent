@@ -29,6 +29,8 @@ except ImportError:  # pragma: no cover - зависимость ставитс�
 __all__ = [
     "SecretNotConfigured",
     "load_settings",
+    "read_settings_raw",
+    "load_env_file",
     "resolve_placeholders",
     "mask_secrets",
     "referenced_env_names",
@@ -106,6 +108,34 @@ def resolve_placeholders(value: Any, fallback_env: Sequence[str] = ()) -> Any:
     им именно там нужен «ключ из любого места».
     """
     return _resolve_node(value, tuple(fallback_env))
+
+
+def load_env_file(path: str | Path | None = None) -> bool:
+    """Подгружает ``.env`` в окружение, не затирая уже заданные переменные.
+
+    Нужна там, где ключ читается напрямую из ``os.environ`` (например, в
+    клиенте LLM), и мы хотим, чтобы работал и файл ``.env``.
+    """
+    if load_dotenv is None:
+        return False
+    env_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH.parent.parent / ".env"
+    if not env_path.is_file():
+        return False
+    load_dotenv(dotenv_path=env_path, override=False)
+    return True
+
+
+def read_settings_raw(path: str | Path | None = None) -> dict[str, Any]:
+    """Читает YAML-конфигурацию **без** подстановки секретов.
+
+    Нужна для модулей, которые работают и без ключа (офлайн-режим):
+    подстановка бросила бы исключение там, где ключ не требуется.
+    """
+    settings_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH
+    if not settings_path.is_file():
+        return {}
+    raw = yaml.safe_load(settings_path.read_text(encoding="utf-8")) or {}
+    return raw if isinstance(raw, dict) else {}
 
 
 def load_settings(path: str | Path | None = None) -> dict[str, Any]:

@@ -105,7 +105,12 @@ def test_fallbacks_can_live_inside_llm_section(monkeypatch, tmp_path):
 
 def test_repository_config_keeps_fallback_inside_llm():
     raw = yaml.safe_load(SETTINGS_PATH.read_text(encoding="utf-8"))
-    # Список резервов живёт в профиле провайдера: при переключении на Groq
-    # старый GEMINI_API_KEY не должен остаться в общей части конфига.
+    # Список резервов живёт в профиле провайдера: при переключении профиля
+    # старый ключ не должен остаться в общей части конфига.
     assert "api_key_fallbacks" not in raw
-    assert "GEMINI_API_KEY" in raw["llm"]["api_key_fallbacks"]
+    fallbacks = raw["llm"]["api_key_fallbacks"]
+    assert fallbacks
+    # Резерв соответствует текущему провайдеру (groq -> GROQ_API_KEY).
+    assert f"{raw['llm']['provider'].upper()}_API_KEY" in fallbacks
+    # Основной ключ LLM_API_KEY в резервном списке не дублируется.
+    assert "LLM_API_KEY" not in fallbacks
