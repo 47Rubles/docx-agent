@@ -1,6 +1,6 @@
 """Offline MCP tool tests: validation, compilation, interview, path safety."""
 import json
-import os
+import re
 from pathlib import Path
 
 import pytest
@@ -54,12 +54,19 @@ def test_output_path_restricted(bad):
 
 
 def test_windows_absolute_path_rejected_on_posix(monkeypatch):
-    """Путь Windows не должен проходить как относительный на POSIX."""
+    """Путь в соглашении Windows отвергается даже внутри рабочей директории."""
     import src.interfaces.mcp_server as mcp_server
     monkeypatch.setattr(mcp_server, '_IS_POSIX', True)
-    inside = str(Path.cwd() / 'report.docx')  # абсолютный путь внутри рабочей директории
+
+    # На Windows это абсолютный путь внутри cwd — без явной проверки он был бы
+    # разрешён. На POSIX путь не похож на абсолютный, поэтому подставляем
+    # windows-вид вручную: без проверки он тоже разрешился бы внутрь cwd.
+    candidate = str(Path.cwd() / 'report.docx')
+    if not re.match(r'^[A-Za-z]:[\\/]', candidate):
+        candidate = 'C:/inside/report.docx'
+
     with pytest.raises(ValueError):
-        _safe_output(inside)
+        _safe_output(candidate)
 
 
 def test_generate_without_key_returns_error(monkeypatch, tmp_path):
