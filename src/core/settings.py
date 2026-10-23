@@ -129,7 +129,15 @@ def load_settings(path: str | Path | None = None) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError(f"Ожидался словарь на верхнем уровне в {settings_path}")
 
+    # Резервные источники ключа можно объявить на верхнем уровне или внутри
+    # секции llm. Второй вариант удобнее: у каждого профиля провайдера свой
+    # список, и при переключении с Gemini на Groq старый ключ не подставится
+    # случайно.
     fallbacks = tuple(raw.get(_FALLBACKS_FIELD) or ())
+    llm_section = raw.get("llm")
+    if isinstance(llm_section, Mapping):
+        fallbacks = tuple(llm_section.get(_FALLBACKS_FIELD) or fallbacks)
+
     resolved = resolve_placeholders(raw, fallbacks)
     return resolved
 

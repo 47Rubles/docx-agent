@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -83,3 +84,28 @@ def test_repository_config_contains_no_literal_key():
 def test_referenced_env_names():
     names = referenced_env_names({"llm": {"api_key": "${LLM_API_KEY}", "m": "${LLM_MODEL}"}})
     assert names == ["LLM_API_KEY", "LLM_MODEL"]
+
+
+def test_fallbacks_can_live_inside_llm_section(monkeypatch, tmp_path):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "from-fallback")
+    config = tmp_path / "settings.yaml"
+    config.write_text(
+        "llm:\n"
+        "  provider: gemini\n"
+        '  api_key: "${LLM_API_KEY}"\n'
+        "  api_key_fallbacks:\n"
+        "    - GEMINI_API_KEY\n",
+        encoding="utf-8",
+    )
+    settings = load_settings(config)
+    assert settings["llm"]["api_key"] == "from-fallback"
+    assert "api_key_fallbacks" not in settings["llm"]
+
+
+def test_repository_config_keeps_fallback_inside_llm():
+    raw = yaml.safe_load(SETTINGS_PATH.read_text(encoding="utf-8"))
+    # Список резервов живёт в профиле провайдера: при переключении на Groq
+    # старый GEMINI_API_KEY не должен остаться в общей части конфига.
+    assert "api_key_fallbacks" not in raw
+    assert "GEMINI_API_KEY" in raw["llm"]["api_key_fallbacks"]

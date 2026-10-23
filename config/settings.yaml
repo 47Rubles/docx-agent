@@ -8,17 +8,18 @@
 # В CI:       GitHub Actions Secret с именем LLM_API_KEY
 # Подробности: docs/SECRETS.md
 
-# Резервные источники ключа, если основная переменная не задана.
-# Позволяет переиспользовать уже настроенный GEMINI_API_KEY без повторного ввода.
-api_key_fallbacks:
-  - GEMINI_API_KEY
-
 llm:
   provider: gemini
   base_url: https://generativelanguage.googleapis.com/v1beta
 
   # Плейсхолдер. Значение приходит из переменной окружения LLM_API_KEY.
   api_key: "${LLM_API_KEY}"
+
+  # Резервные источники ключа, если LLM_API_KEY не задана.
+  # Список живёт внутри профиля провайдера, поэтому при переключении на Groq
+  # он меняется вместе с профилем и старый ключ не подставится случайно.
+  api_key_fallbacks:
+    - GEMINI_API_KEY
 
   # Google требует передавать ключ заголовком x-goog-api-key.
   # Передача в Authorization: Bearer с ключами формата AQ.* даёт 401.
@@ -61,6 +62,8 @@ document:
 #   provider: groq
 #   base_url: https://api.groq.com/openai/v1
 #   api_key: "${LLM_API_KEY}"
+#   api_key_fallbacks:
+#     - GROQ_API_KEY
 #   auth_style: bearer
 #   model: llama-3.3-70b-versatile
 #   timeout_seconds: 120
