@@ -3,8 +3,11 @@
 
     Ключ вводится с маскировкой и хранится ТОЛЬКО в пользовательской переменной
     окружения LLM_API_KEY. В файлы он не пишется: config/settings.yaml хранит
-    плейсхолдер ${LLM_API_KEY}, который подставляется в памяти при загрузке
-    конфигурации.
+    плейсхолдер ${LLM_API_KEY}, который подставляется в памяти при загрузке.
+
+    Скрипт сам читает config/settings.yaml и подстраивается под провайдера:
+      * auth_style: header  -> ключ уходит в заголовок auth_header (Google, x-goog-api-key)
+      * auth_style: bearer  -> ключ уходит в Authorization: Bearer (Groq, OpenAI-совместимые)
 
     Тот же секрет используется в CI:
     GitHub Actions -> Settings -> Secrets and variables -> Actions ->
@@ -13,14 +16,11 @@
     Использование:
       powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1
       powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1 -UseExistingKey
-      powershell -ExecutionPolicy Bypass -File scripts\set-api-key.ps1 -Provider openai -BaseUrl https://api.openai.com/v1
 #>
 
 param(
     [switch]$UseExistingKey,
-    [ValidateSet('gemini', 'openai')]
-    [string]$Provider = 'gemini',
-    [string]$BaseUrl
+    [string]$ConfigPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,16 +31,59 @@ try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
 $EnvName = 'LLM_API_KEY'
 
-if (-not $BaseUrl) {
-    switch ($Provider) {
-        'gemini' { $BaseUrl = 'https://generativelanguage.googleapis.com/v1beta' }
-        'openai' { $BaseUrl = 'https://api.openai.com/v1' }
+if (-not $ConfigPath) {
+    $ConfigPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\settings.yaml'
+}
+if (-not (Test-Path -LiteralPath $ConfigPath)) {
+    Write-Error ("Не найден файл конфигурации: " + $ConfigPath)
+    exit 1
+}
+
+# --- чтение секции llm из конфига ---------------------------------------------
+function Get-LlmBlock {
+    param([string]$Text)
+    $lines = $Text -split "`r?`n"
+    $inside = $false
+    $block = @()
+    foreach ($line in $lines) {
+        if ($line -match '^llm:\s*$') { $inside = $true; continue }
+        if ($inside -and $line -match '^[A-Za-z_][A-Za-z0-9_]*:') { break }
+        if ($inside) { $block += $line }
     }
+    return ($block -join "`n")
+}
+
+function Get-YamlValue {
+    param([string]$Text, [string]$Key, [string]$Default = '')
+    $pattern = '(?m)^\s+' + [regex]::Escape($Key) + '\s*:\s*(.+?)\s*$'
+    $match = [regex]::Match($Text, $pattern)
+    if (-not $match.Success) { return $Default }
+    return $match.Groups[1].Value.Trim().Trim('"', "'")
+}
+
+$yaml = Get-Content -LiteralPath $ConfigPath -Raw
+$llmBlock = Get-LlmBlock -Text $yaml
+
+$Provider   = Get-YamlValue -Text $llmBlock -Key 'provider'   -Default 'unknown'
+$BaseUrl    = Get-YamlValue -Text $llmBlock -Key 'base_url'
+$AuthStyle  = Get-YamlValue -Text $llmBlock -Key 'auth_style' -Default 'bearer'
+$AuthHeader = Get-YamlValue -Text $llmBlock -Key 'auth_header' -Default 'x-goog-api-key'
+
+if (-not $BaseUrl) {
+    Write-Error 'В секции llm конфигурации не найден base_url.'
+    exit 1
 }
 
 Write-Host ''
 Write-Host '  DocxGen Agent — настройка ключа API' -ForegroundColor Cyan
 Write-Host '  ------------------------------------' -ForegroundColor Cyan
+Write-Host ('  Провайдер: ' + $Provider) -ForegroundColor DarkGray
+Write-Host ('  Endpoint:  ' + $BaseUrl) -ForegroundColor DarkGray
+if ($AuthStyle -eq 'header') {
+    Write-Host ('  Ключ уйдёт в заголовке: ' + $AuthHeader) -ForegroundColor DarkGray
+} else {
+    Write-Host '  Ключ уйдёт в заголовке: Authorization: Bearer' -ForegroundColor DarkGray
+}
 
 # --- получение ключа ----------------------------------------------------------
 $key = $null
@@ -70,38 +113,48 @@ if ($UseExistingKey) {
 
 # --- проверка ключа -----------------------------------------------------------
 $headers = @{ 'User-Agent' = 'docx-agent-setup' }
-if ($Provider -eq 'gemini') {
-    # Ключи формата AQ.* принимаются только заголовком x-goog-api-key;
+if ($AuthStyle -eq 'header') {
+    # Google: ключи формата AQ.* принимаются только заголовком x-goog-api-key;
     # Authorization: Bearer с ними даёт 401.
-    $headers['x-goog-api-key'] = $key
+    $headers[$AuthHeader] = $key
 } else {
     $headers['Authorization'] = 'Bearer ' + $key
 }
 
+# Groq и Google с этой машины доступны только через прокси: .NET в PowerShell
+# 5.1 не читает переменные HTTP_PROXY, поэтому прокси указываем явно.
+$proxy = $env:HTTPS_PROXY
+if ([string]::IsNullOrWhiteSpace($proxy)) { $proxy = $env:HTTP_PROXY }
+$proxyArgs = @{}
+if (-not [string]::IsNullOrWhiteSpace($proxy)) {
+    $proxyArgs['Proxy'] = $proxy
+    Write-Host ('  Прокси: ' + $proxy) -ForegroundColor DarkGray
+}
+
 try {
-    $resp = Invoke-RestMethod -Uri ($BaseUrl + '/models') -Headers $headers -Method Get -TimeoutSec 30 -ErrorAction Stop
+    $resp = Invoke-RestMethod -Uri ($BaseUrl + '/models') -Headers $headers -Method Get -TimeoutSec 30 -ErrorAction Stop @proxyArgs
     $names = @($resp.PSObject.Properties.Name)
     $count = 0
     if ($names -contains 'models') { $count = @($resp.models).Count }
     elseif ($names -contains 'data') { $count = @($resp.data).Count }
-    Write-Host ('Ключ принят. Моделей доступно: ' + $count + '.') -ForegroundColor Green
+    Write-Host ('  Ключ принят. Моделей доступно: ' + $count + '.') -ForegroundColor Green
 } catch {
     $msg = ($_.Exception.Message -split "`n")[0]
     $msg = $msg.Replace($key, '<KEY>')
-    Write-Host ('Проверить ключ не удалось: ' + $msg) -ForegroundColor Yellow
-    Write-Host 'Ключ всё равно сохраню — реальная проверка будет при первом вызове.' -ForegroundColor Yellow
+    Write-Host ('  Проверить ключ не удалось: ' + $msg) -ForegroundColor Yellow
+    Write-Host '  Ключ всё равно сохраню — реальная проверка будет при первом вызове.' -ForegroundColor Yellow
 }
 
 # --- сохранение ключа ---------------------------------------------------------
 if (-not $UseExistingKey) {
     [Environment]::SetEnvironmentVariable($EnvName, $key, 'User')
     Set-Item -Path ('Env:' + $EnvName) -Value $key
-    Write-Host ('Ключ сохранён в пользовательскую переменную ' + $EnvName + '.') -ForegroundColor Green
+    Write-Host ('  Ключ сохранён в пользовательскую переменную ' + $EnvName + '.') -ForegroundColor Green
 }
 
 Write-Host ''
 Write-Host 'Что дальше:' -ForegroundColor Cyan
-Write-Host '  1. Для локальной работы переменная уже доступна в новых терминалах.'
+Write-Host '  1. Локально переменная уже доступна в новых терминалах.'
 Write-Host '  2. Для CI добавь такой же секрет в настройках репозитория на GitHub.'
 Write-Host '  3. Проверить связь с провайдером: python scripts\smoke_test.py'
 Write-Host ''

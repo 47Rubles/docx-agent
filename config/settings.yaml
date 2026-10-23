@@ -43,3 +43,27 @@ document:
   enable_toc: true
   enable_track_changes: false
   max_heading_depth: 3
+
+# ---------------------------------------------------------------------------
+# Переключение на Groq (OpenAI-совместимый API)
+# ---------------------------------------------------------------------------
+# Раскомментируй блок ниже и закомментируй секцию llm выше. Больше ничего
+# менять не нужно: ключ лежит в той же переменной LLM_API_KEY, а скрипт
+# scripts\set-api-key.ps1 сам подстроит заголовок под провайдера.
+#
+# Отличия Groq от Google:
+#   * ключ передаётся как Authorization: Bearer, а не заголовком x-goog-api-key;
+#   * ключ Groq имеет префикс gsk_;
+#   * с этой машины Groq доступен только через прокси 127.0.0.1:7890 —
+#     прямое соединение отдаёт 403 (гео-блок).
+#
+# llm:
+#   provider: groq
+#   base_url: https://api.groq.com/openai/v1
+#   api_key: "${LLM_API_KEY}"
+#   auth_style: bearer
+#   model: llama-3.3-70b-versatile
+#   timeout_seconds: 120
+#   max_retries: 3
+#   temperature: 0.2
+#   max_output_tokens: 8192

@@ -30,6 +30,7 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("github_pat", re.compile(r"github_pat_[A-Za-z0-9_]{20,}")),
     ("github_pat_legacy", re.compile(r"\bghp_[A-Za-z0-9]{20,}")),
     ("openai", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
+    ("groq", re.compile(r"\bgsk_[A-Za-z0-9]{20,}")),
     ("google_standard", re.compile(r"\bAIza[0-9A-Za-z_-]{30,}")),
     ("google_authorization", re.compile(r"\bAQ\.Ab[A-Za-z0-9_-]{20,}")),
     ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}")),
