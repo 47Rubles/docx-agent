@@ -26,7 +26,7 @@ jobs:
       - name: Установить зависимости
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest
+          pip install -r requirements.txt
 
       - name: Проверить, что секреты не попали в репозиторий
         run: python scripts/check_secrets.py
