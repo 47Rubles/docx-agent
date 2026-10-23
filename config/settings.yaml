@@ -1,0 +1,45 @@
+# Конфигурация DocxGen Agent.
+#
+# ВАЖНО: в этом файле нет и не должно быть ключей. Секреты подставляются
+# из переменной окружения в момент загрузки конфигурации — плейсхолдер
+# ${LLM_API_KEY} превращается в значение из окружения только в памяти.
+#
+# Локально:   scripts/set-api-key.ps1  (кладёт ключ в переменную уровня User)
+# В CI:       GitHub Actions Secret с именем LLM_API_KEY
+# Подробности: docs/SECRETS.md
+
+# Резервные источники ключа, если основная переменная не задана.
+# Позволяет переиспользовать уже настроенный GEMINI_API_KEY без повторного ввода.
+api_key_fallbacks:
+  - GEMINI_API_KEY
+
+llm:
+  provider: gemini
+  base_url: https://generativelanguage.googleapis.com/v1beta
+
+  # Плейсхолдер. Значение приходит из переменной окружения LLM_API_KEY.
+  api_key: "${LLM_API_KEY}"
+
+  # Google требует передавать ключ заголовком x-goog-api-key.
+  # Передача в Authorization: Bearer с ключами формата AQ.* даёт 401.
+  auth_style: header
+  auth_header: x-goog-api-key
+
+  model: gemini-3.8-flash
+  timeout_seconds: 120
+  max_retries: 3
+
+  # Параметры генерации
+  temperature: 0.2
+  max_output_tokens: 8192
+
+paths:
+  templates_dir: assets/templates
+  xslt_dir: assets/xslt
+  output_dir: output
+
+document:
+  template: assets/templates/minimalist.dotx
+  enable_toc: true
+  enable_track_changes: false
+  max_heading_depth: 3

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Тесты и проверка секретов
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Настроить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Проверить, что секреты не попали в репозиторий
+        run: python scripts/check_secrets.py
+
+      - name: Тесты
+        run: python -m pytest -q
+
+      # Ключ приходит из репозиторного секрета LLM_API_KEY.
+      # Если секрет не настроен, smoke_test.py сам напишет «пропущено»
+      # и завершится с кодом 0 — сборка от этого не падает.
+      - name: Smoke-тест с ключом из secrets
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: python scripts/smoke_test.py

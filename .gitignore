@@ -27,8 +27,10 @@ tmp/
 *.log
 
 # Конфигурация с секретами
+# .env никогда не коммитится, но шаблон .env.example — в репозитории нужен
 .env
 .env.*
+!.env.example
 config/local.yaml
 settings.local.yaml
 
