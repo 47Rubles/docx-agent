@@ -28,10 +28,21 @@ python -m src.cli generate 'Подготовь отчёт для руковод�
 ## Architecture
 
 - `src/models/ast_schema.py`: discriminated, strictly validated document AST.
+- `src/core/ast_normalizer.py`: приводит ответ модели к схеме — лишние поля, ширины таблиц, уровни заголовков, неизвестные типы блоков.
 - `src/core/`: OMML conversion, tables, callouts and DOCX compilation.
 - `src/agents/interviewer.py`: heuristic requirement questions.
-- `src/agents/planner.py`: Anthropic LLM → validated AST.
+- `src/agents/planner.py`: LLM → нормализованный и валидный AST, до двух попыток починки.
 - `src/cli.py`: `generate` and `from-json` commands.
+
+## Документация
+
+| Документ | О чём |
+|---|---|
+| [`docs/TOOLS.md`](docs/TOOLS.md) | Сводный перечень используемых инструментов: библиотеки, форматы, внешние сервисы, инструменты продукта, контроль качества |
+| [`docs/SECRETS.md`](docs/SECRETS.md) | Как хранить API-ключи локально и в CI, и что делать, если ключ утёк |
+| [`PROJECT_SPEC.md`](PROJECT_SPEC.md) | Техническая спецификация: архитектура, схема AST, компилятор OpenXML |
+| [`AGENTS.md`](AGENTS.md) | Регламенты агентов, стейт-машина оркестрации, протоколы валидации и отката |
+| [`REVIEW_REPORT.md`](REVIEW_REPORT.md) | Аудит прототипа: что исправлено и что ещё не реализовано |
 
 ## Known limits
 

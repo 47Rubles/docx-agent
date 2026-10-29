@@ -84,6 +84,10 @@ def main() -> int:
             payload = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:300]
+        if exc.code == 429:
+            # Квота провайдера исчерпана: ключ при этом рабочий, ключ не при чём.
+            print(f"Пропущено: провайдер вернул 429 (лимит запросов): {mask_secrets(detail, [key])}")
+            return 0
         print(f"Ошибка HTTP {exc.code}: {mask_secrets(detail, [key])}", file=sys.stderr)
         return 1
     except Exception as exc:  # noqa: BLE001 - в лог уходит текст без ключа
